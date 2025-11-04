@@ -1,6 +1,7 @@
-// ============================================\n// 전역 상태 관리
+// ============================================
+// 전역 상태 관리
 // - 모든 탭 간 데이터 공유를 위한 중앙 저장소
-// ============================================\n
+// ============================================
 
 let appState = {
     service: '',           // 서비스 목적
@@ -20,8 +21,9 @@ let typingTimeout;       // 타이핑 효과 타이머
 let reportData = null;   // AI 리포트 데이터
 let currentCodeTab = 'css';  // 현재 선택된 코드 탭
 
-// ============================================\n// 앱 초기화
-// ============================================\n
+// ============================================
+// 앱 초기화
+// ============================================
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
@@ -44,8 +46,9 @@ async function initializeApp() {
     }
 }
 
-// ============================================\n// 1. 네비게이션 설정
-// ============================================\n
+// ============================================
+// 1. 네비게이션 설정
+// ============================================
 
 function setupNavigation() {
     const navLinks = document.querySelectorAll('.nav-link');
@@ -78,8 +81,9 @@ function setupNavigation() {
     });
 }
 
-// ============================================\n// 2. 메인 페이지 (가이드 생성) 초기화
-// ============================================\n
+// ============================================
+// 2. 메인 페이지 (가이드 생성) 초기화
+// ============================================
 
 function initializeMainPage() {
     // 요소 캐싱
@@ -160,9 +164,6 @@ function updateKeywordChips() {
 // 무드 값에 따라 키워드 그룹 반환 (임시 로직)
 function getKeywordsFromMood(soft, staticMood) {
     // knowledgeBase의 iri_colors를 기반으로 동적 매칭
-    // 예시: Soft (soft > 50), Hard (soft <= 50)
-    // 예시: Static (staticMood > 50), Dynamic (staticMood <= 50)
-    
     const isSoft = soft > 50;
     const isStatic = staticMood > 50;
     
@@ -275,8 +276,9 @@ function updateAIMessage(text, isError = false) {
     typeWriter();
 }
 
-// ============================================\n// 3. 유니버설 컬러시스템 실험실 초기화
-// ============================================\n
+// ============================================
+// 3. 유니버설 컬러시스템 실험실 초기화
+// ============================================
 
 function initializeLabPage() {
     const bgColorText = document.getElementById('lab-bg-color-text');
@@ -302,12 +304,12 @@ function initializeLabPage() {
             bg = bgColorPicker.value;
             bgColorText.value = bg;
         } else { // 'swap' or 'reset'
-            bg = bgColorText.value;
-            text = textColorText.value;
+            // swap/reset의 경우, 이미 input 값이 변경된 상태이므로 값만 읽어옴
         }
-
-        appState.labColors.bgColor = bg;
-        appState.labColors.textColor = text;
+        
+        // appState 업데이트
+        appState.labColors.bgColor = bgColorText.value;
+        appState.labColors.textColor = textColorText.value;
 
         // 미리보기 업데이트
         updateLabPreview();
@@ -363,7 +365,6 @@ function updateLabPreview() {
     // 버튼 스타일 (임시: 주조색 또는 반전)
     // AI 생성 결과가 있으면 주조색 사용, 없으면 텍스트색 사용
     const primaryMain = appState.generatedResult?.primary.main || textColor;
-    const primaryLight = appState.generatedResult?.primary.light || bgColor;
     
     button.style.backgroundColor = primaryMain;
     button.style.color = getContrastYIQ(primaryMain) ? '#000000' : '#FFFFFF'; // 버튼 텍스트 자동 대비
@@ -393,8 +394,9 @@ function updateWCAGStatus(elementId, passed) {
 }
 
 
-// ============================================\n// 4. AI 리포트 페이지 초기화
-// ============================================\n
+// ============================================
+// 4. AI 리포트 페이지 초기화
+// ============================================
 
 function initializeReportPage() {
     // [수정] 다운로드 버튼 이벤트 리스너 추가
@@ -403,8 +405,7 @@ function initializeReportPage() {
     if (downloadBtn) {
         downloadBtn.addEventListener('click', downloadReportAsImage);
     } else {
-        // 이 경고는 index.html에 버튼이 아직 로드되지 않았거나 ID가 없을 때 발생
-        // console.warn('Download button (id="download-report-btn") not found.');
+        console.warn('Download button (id="download-report-btn") not found during init.');
     }
 
     // 코드 내보내기 탭 로직
@@ -440,6 +441,7 @@ function initializeReportPage() {
  * [신규] AI 리포트 영역을 이미지로 캡처하여 다운로드하는 함수
  */
 async function downloadReportAsImage() {
+    // 캡처할 대상 요소를 찾습니다. (index.html에서 설정한 ID)
     const reportContentElement = document.getElementById('report-content');
     const downloadBtn = document.getElementById('download-report-btn');
 
@@ -496,6 +498,7 @@ function renderReport(data) {
     
     // Primary, Secondary, Grayscale 등을 순회하며 렌더링
     const renderColorGroup = (group, name) => {
+        if (!group) return;
         Object.entries(group).forEach(([key, value]) => {
             const card = document.createElement('div');
             card.className = 'color-card';
@@ -517,7 +520,6 @@ function renderReport(data) {
     if (data.colorSystem) {
         renderColorGroup(data.colorSystem.primary, 'Primary');
         renderColorGroup(data.colorSystem.secondary, 'Secondary');
-        // 'grayscale' 등 다른 속성이 있다면 추가
     }
     document.getElementById('color-reasoning').textContent = data.reasoning?.color || '-';
 
@@ -611,7 +613,7 @@ function updateCodeOutput() {
   
   /* (Grayscale 등 추가) */
 }
-            `;
+            `.trim();
             break;
         case 'scss':
             outputEl.textContent = `
@@ -624,7 +626,7 @@ $color-secondary-light: ${secondary.light};
 $color-secondary-dark: ${secondary.dark};
 
 /* (Grayscale 등 추가) */
-            `;
+            `.trim();
             break;
         case 'tailwind':
             outputEl.textContent = `
@@ -649,17 +651,19 @@ module.exports = {
   },
   plugins: [],
 }
-            `;
+            `.trim();
             break;
     }
 }
 
 
-// ============================================\n// 유틸리티 함수
-// ============================================\n
+// ============================================
+// 유틸리티 함수
+// ============================================
 
 // 16진수 색상을 RGB 객체로 변환
 function hexToRgb(hex) {
+    if (!hex) return null;
     let c = hex.substring(1).split('');
     if (c.length === 3) {
         c = [c[0], c[0], c[1], c[1], c[2], c[2]];
@@ -705,6 +709,7 @@ function getContrastYIQ(hex){
     return (yiq >= 128); // 128 이상이면 밝은색 (검정 텍스트)
 }
 
+// (참고: 다른 유틸리티 함수들...)
 // 색상 밝게/어둡게 (Shade/Tint)
 function lightenDarkenColor(hex, amt) {
     let usePound = false;
@@ -722,10 +727,10 @@ function lightenDarkenColor(hex, amt) {
     let g = (num & 0x0000FF) + amt;
     if (g > 255) g = 255;
     else if (g < 0) g = 0;
+    // padStart로 6자리 보장
     return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
 }
 
-// (참고: 다른 유틸리티 함수들...)
 // 보색 계산
 function getComplementaryColor(hex){
     const rgb = hexToRgb(hex);
