@@ -38,7 +38,7 @@ async function initializeApp() {
         setupNavigation();
         initializeMainPage();
         initializeLabPage();
-        initializeReportPage(); // <-- 이 함수가 수정됨
+        initializeReportPage();
 
     } catch (error) {
         console.error('Failed to initialize app:', error);
@@ -86,7 +86,7 @@ function setupNavigation() {
 // ============================================
 
 function initializeMainPage() {
-    // (이전과 동일)
+    // 요소 캐싱
     const serviceInput = document.getElementById('service-purpose');
     const platformSelect = document.getElementById('platform-select');
     const moodSoftSlider = document.getElementById('mood-soft');
@@ -96,14 +96,17 @@ function initializeMainPage() {
     const generateBtn = document.getElementById('generate-btn');
     const keywordChipsContainer = document.getElementById('keyword-chips');
 
+    // 이벤트 리스너 바인딩
     serviceInput.addEventListener('change', (e) => appState.service = e.target.value);
     platformSelect.addEventListener('change', (e) => appState.platform = e.target.value);
     moodSoftSlider.addEventListener('input', (e) => appState.mood.soft = parseInt(e.target.value));
     moodStaticSlider.addEventListener('input', (e) => appState.mood.static = parseInt(e.target.value));
     
+    // 무드 슬라이더 변경 시 키워드 다시 필터링
     moodSoftSlider.addEventListener('change', updateKeywordChips);
     moodStaticSlider.addEventListener('change', updateKeywordChips);
 
+    // HEX 색상 입력
     colorInput.addEventListener('input', (e) => {
         let hex = e.target.value;
         if (hex.match(/^#[0-9a-fA-F]{6}$/) || hex.match(/^#[0-9a-fA-F]{3}$/)) {
@@ -112,20 +115,24 @@ function initializeMainPage() {
         }
     });
 
+    // 컬러 피커 입력
     colorPicker.addEventListener('input', (e) => {
         appState.primaryColor = e.target.value;
         colorInput.value = e.target.value;
     });
 
+    // 키워드 칩 생성
     updateKeywordChips();
+
+    // 생성 버튼 클릭
     generateBtn.addEventListener('click', handleGenerateRequest);
 }
 
-// (이전과 동일)
+// 키워드 칩 업데이트 및 선택 로직
 function updateKeywordChips() {
     const keywords = getKeywordsFromMood(appState.mood.soft, appState.mood.static);
     const container = document.getElementById('keyword-chips');
-    container.innerHTML = ''; 
+    container.innerHTML = ''; // 기존 칩 제거
 
     keywords.forEach(keyword => {
         const chip = document.createElement('button');
@@ -133,25 +140,33 @@ function updateKeywordChips() {
         chip.textContent = keyword;
         chip.dataset.keyword = keyword;
 
+        // 현재 선택된 키워드 표시
         if (keyword === appState.keyword) {
             chip.classList.add('active');
         }
 
         chip.addEventListener('click', () => {
+            // 모든 칩 비활성화
             container.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active'));
+            // 클릭된 칩 활성화
             chip.classList.add('active');
             appState.keyword = keyword;
         });
         container.appendChild(chip);
     });
 
+    // 만약 기존에 선택한 키워드가 새 목록에 없다면 선택 해제
     if (!keywords.includes(appState.keyword)) {
         appState.keyword = '';
     }
 }
 
-// (이전과 동일)
+// 무드 값에 따라 키워드 그룹 반환 (임시 로직)
 function getKeywordsFromMood(soft, staticMood) {
+    // knowledgeBase의 iri_colors를 기반으로 동적 매칭
+    // 예시: Soft (soft > 50), Hard (soft <= 50)
+    // 예시: Static (staticMood > 50), Dynamic (staticMood <= 50)
+    
     const isSoft = soft > 50;
     const isStatic = staticMood > 50;
     
@@ -168,31 +183,36 @@ function getKeywordsFromMood(soft, staticMood) {
         return foundGroup.keywords;
     }
     
+    // 기본값 (group1)
     return knowledgeBase.iri_colors?.group1?.keywords || ["귀여운", "경쾌한"];
 }
 
-// (이전과 동일)
+
+// AI 가이드 생성 요청 처리
 async function handleGenerateRequest() {
     const generateBtn = document.getElementById('generate-btn');
     const btnText = document.getElementById('btn-text');
     const btnLoader = document.getElementById('btn-loader');
 
+    // 1. 유효성 검사
     if (!appState.service || !appState.platform || !appState.keyword) {
         updateAIMessage("서비스 목적, 플랫폼, AI 추천 키워드를 모두 선택해주세요.", true);
         return;
     }
 
+    // 2. 로딩 상태 시작
     generateBtn.disabled = true;
     btnText.style.display = 'none';
     btnLoader.style.display = 'block';
     updateAIMessage("AI가 디자인 가이드를 생성 중입니다... (최대 1분 소요)");
 
     try {
+        // 3. Netlify Function (generate-guide.js) 호출
         const context = {
             service: appState.service,
             platform: appState.platform,
             keyword: appState.keyword,
-            primaryColor: appState.primaryColor || null
+            primaryColor: appState.primaryColor || null // 빈 문자열 대신 null
         };
         
         const response = await fetch('/.netlify/functions/generate-guide', {
@@ -207,11 +227,14 @@ async function handleGenerateRequest() {
 
         const result = await response.json();
         
-        reportData = result; 
-        appState.generatedResult = result.colorSystem; 
+        // 4. 결과 처리
+        reportData = result; // AI 리포트 탭을 위한 데이터 저장
+        appState.generatedResult = result.colorSystem; // 유니버설 랩을 위한 데이터 저장
 
+        // 5. AI 메시지 업데이트 (성공)
         updateAIMessage("AI 디자인 가이드 생성이 완료되었습니다! 'AI 디자인 리포트' 탭에서 결과를 확인하세요.");
         
+        // 리포트 탭 활성화 및 자동 이동
         const reportNavLink = document.querySelector('.nav-link[data-target="report-page"]');
         reportNavLink.click();
 
@@ -219,20 +242,21 @@ async function handleGenerateRequest() {
         console.error('Error generating guide:', error);
         updateAIMessage("죄송합니다. AI 가이드 생성 중 오류가 발생했습니다. 입력값을 확인하고 다시 시도해주세요.", true);
     } finally {
+        // 6. 로딩 상태 종료
         generateBtn.disabled = false;
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
     }
 }
 
-// (이전과 동일)
+// AI 메시지 박스 업데이트 (타이핑 효과 포함)
 function updateAIMessage(text, isError = false) {
     const messageText = document.getElementById('ai-message-text');
     const cursor = document.querySelector('.typing-cursor');
     const messageBox = document.getElementById('ai-message-box');
     
-    messageText.textContent = ''; 
-    if (typingTimeout) clearTimeout(typingTimeout); 
+    messageText.textContent = ''; // 기존 메시지 삭제
+    if (typingTimeout) clearTimeout(typingTimeout); // 기존 타이핑 중지
     
     if (isError) {
         messageBox.classList.add('error');
@@ -241,15 +265,15 @@ function updateAIMessage(text, isError = false) {
     }
 
     let i = 0;
-    cursor.style.display = 'inline-block'; 
+    cursor.style.display = 'inline-block'; // 커서 보이기
 
     function typeWriter() {
         if (i < text.length) {
             messageText.textContent += text.charAt(i);
             i++;
-            typingTimeout = setTimeout(typeWriter, 30); 
+            typingTimeout = setTimeout(typeWriter, 30); // 타이핑 속도
         } else {
-            cursor.style.display = 'none'; 
+            cursor.style.display = 'none'; // 타이핑 완료 후 커서 숨김
         }
     }
     typeWriter();
@@ -260,7 +284,6 @@ function updateAIMessage(text, isError = false) {
 // ============================================
 
 function initializeLabPage() {
-    // (이전과 동일)
     const bgColorText = document.getElementById('lab-bg-color-text');
     const bgColorPicker = document.getElementById('lab-bg-color-picker');
     const textColorText = document.getElementById('lab-text-color-text');
@@ -269,18 +292,29 @@ function initializeLabPage() {
     const resetBtn = document.getElementById('reset-colors-btn');
 
     const updateColors = (source) => {
+        let bg, text;
+        
         if (source === 'text') {
-            textColorPicker.value = textColorText.value;
+            text = textColorText.value;
+            textColorPicker.value = text;
         } else if (source === 'textPicker') {
-            textColorText.value = textColorPicker.value;
+            text = textColorPicker.value;
+            textColorText.value = text;
         } else if (source === 'bg') {
-            bgColorPicker.value = bgColorText.value;
+            bg = bgColorText.value;
+            bgColorPicker.value = bg;
         } else if (source === 'bgPicker') {
-            bgColorText.value = bgColorPicker.value;
+            bg = bgColorPicker.value;
+            bgColorText.value = bg;
+        } else { // 'swap' or 'reset'
+            bg = bgColorText.value;
+            text = textColorText.value;
         }
 
-        appState.labColors.bgColor = bgColorText.value;
-        appState.labColors.textColor = textColorText.value;
+        appState.labColors.bgColor = bg;
+        appState.labColors.textColor = text;
+
+        // 미리보기 업데이트
         updateLabPreview();
     };
 
@@ -308,14 +342,16 @@ function initializeLabPage() {
         updateColors('reset');
     });
 
+    // 폰트 페어링 가이드 채우기
     const fontPairingList = document.getElementById('font-pairing-list');
     const pairings = knowledgeBase.font_pairing_recommendations || [];
     fontPairingList.innerHTML = pairings.map(p => `<li><strong>${p.combination}:</strong> ${p.reason}</li>`).join('');
 
+    // 초기 미리보기 실행
     updateLabPreview();
 }
 
-// (이전과 동일)
+// 유니버설 랩 미리보기 및 접근성 계산 업데이트
 function updateLabPreview() {
     const { bgColor, textColor } = appState.labColors;
     
@@ -324,25 +360,31 @@ function updateLabPreview() {
     const bodyText = document.getElementById('preview-body-text');
     const button = document.getElementById('preview-button');
 
+    // 미리보기 색상 적용
     preview.style.backgroundColor = bgColor;
     headline.style.color = textColor;
     bodyText.style.color = textColor;
     
+    // 버튼 스타일 (임시: 주조색 또는 반전)
+    // AI 생성 결과가 있으면 주조색 사용, 없으면 텍스트색 사용
     const primaryMain = appState.generatedResult?.primary.main || textColor;
+    const primaryLight = appState.generatedResult?.primary.light || bgColor;
     
     button.style.backgroundColor = primaryMain;
-    button.style.color = getContrastYIQ(primaryMain) ? '#000000' : '#FFFFFF'; 
+    button.style.color = getContrastYIQ(primaryMain) ? '#000000' : '#FFFFFF'; // 버튼 텍스트 자동 대비
     
+    // 접근성 계산
     const contrast = calculateContrast(bgColor, textColor);
     document.getElementById('contrast-ratio-value').textContent = `${contrast.toFixed(2)}:1`;
 
+    // WCAG 상태 업데이트
     updateWCAGStatus('wcag-aa-normal', contrast >= 4.5);
     updateWCAGStatus('wcag-aa-large', contrast >= 3);
     updateWCAGStatus('wcag-aaa-normal', contrast >= 7);
     updateWCAGStatus('wcag-aaa-large', contrast >= 4.5);
 }
 
-// (이전과 동일)
+// WCAG 상태(Pass/Fail) UI 업데이트
 function updateWCAGStatus(elementId, passed) {
     const el = document.getElementById(elementId);
     const statusEl = el.querySelector('span:last-child');
@@ -361,23 +403,9 @@ function updateWCAGStatus(elementId, passed) {
 // ============================================
 
 function initializeReportPage() {
-    // [추가] 다운로드 버튼 이벤트 리스너 연결
-    // DOM 로드 시점에 버튼이 없을 수 있으므로, 
-    // 나중에 탭이 활성화될 때를 대비해 document 레벨에서 이벤트를 위임하는 것이 더 안전하지만,
-    // 우선은 DOMContentLoaded에서 찾는 시도를 합니다.
-    // (네비게이션 로직에서 탭을 클릭해 활성화할 때 버튼이 이미 존재해야 합니다)
-    const downloadBtn = document.getElementById('download-report-btn');
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadReportAsImage);
-    } else {
-        // 탭이 나중에 활성화될 때 버튼이 생성될 수 있으므로, 
-        // 탭 네비게이션 로직에서 이 이벤트를 다시 확인하는 것이 좋습니다.
-        // 하지만 지금 구조에서는 initializeApp 시점에 버튼이 HTML에 존재하므로
-        // 찾을 수 있어야 합니다. 
-        console.warn('Download button (id="download-report-btn") not found during init.');
-    }
+    // (원본 파일: PNG 다운로드 로직 없음)
 
-    // (기존 코드) - 코드 내보내기 탭 로직
+    // 코드 내보내기 탭 로직
     const exportTabs = document.querySelectorAll('.export-tab');
     exportTabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -388,7 +416,7 @@ function initializeReportPage() {
         });
     });
 
-    // (기존 코드) - 코드 복사 버튼 로직
+    // 코드 복사 버튼 로직
     const copyBtn = document.getElementById('copy-code-btn');
     copyBtn.addEventListener('click', () => {
         const code = document.getElementById('code-output').textContent;
@@ -405,82 +433,16 @@ function initializeReportPage() {
     });
 }
 
-// [추가] PNG 다운로드 기능 함수
-/**
- * AI 리포트 영역을 이미지로 캡처하여 다운로드하는 함수
- */
-async function downloadReportAsImage() {
-    // 1. 캡처할 대상: 'report-content' (섹션들을 감싼 래퍼)
-    const reportContentElement = document.getElementById('report-content');
-    // 캡처할 대상 2: 'report-header' (제목 + 버튼)
-    const reportHeaderElement = document.querySelector('.report-header'); 
-    
-    const downloadBtn = document.getElementById('download-report-btn');
-
-    if (!reportContentElement || !reportHeaderElement) {
-        console.error('Report content or header element not found!');
-        alert('리포트 콘텐츠 영역을 찾을 수 없습니다.');
-        return;
-    }
-
-    // 캡처 중임을 알리기 위해 버튼 상태 변경
-    const originalBtnText = downloadBtn.textContent;
-    downloadBtn.textContent = '이미지 생성 중...';
-    downloadBtn.disabled = true;
-
-    try {
-        // 캡처 대상이 2개(헤더, 콘텐츠)이므로 임시 래퍼를 만들어 캡처합니다.
-        // 이것이 흰 화면의 원인일 수 있습니다.
-        // >> 수정: 캡처 대상을 'report-page' (부모)로 변경합니다.
-        
-        const captureTarget = document.getElementById('report-page');
-
-        // 캡처하는 동안 버튼을 잠시 숨겨서 이미지에 안 나오게 함
-        downloadBtn.style.visibility = 'hidden';
-
-        const canvas = await html2canvas(captureTarget, {
-            scale: 2, // 2배 해상도로 캡처
-            useCORS: true,
-            // 캡처 대상의 실제 배경색을 지정 (body의 배경색 등)
-            backgroundColor: '#f8f9fa' 
-        });
-
-        // 캡처가 끝나면 버튼을 다시 보이게 함
-        downloadBtn.style.visibility = 'visible';
-
-        // PNG 이미지 데이터 URL 생성
-        const dataUrl = canvas.toDataURL('image/png');
-
-        // 임시 링크로 다운로드
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = 'ai-design-report.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-    } catch (error) {
-        console.error('리포트 이미지 생성 중 오류 발생:', error);
-        alert('리포트 이미지 생성 중 오류가 발생했습니다.');
-    } finally {
-        // 버튼 상태 원상복구
-        downloadBtn.style.visibility = 'visible';
-        downloadBtn.textContent = originalBtnText;
-        downloadBtn.disabled = false;
-    }
-}
-
-
-// (이전과 동일)
+// AI 리포트 페이지 렌더링
 function renderReport(data) {
     if (!data) return;
 
     // 1. 컬러 팔레트 렌더링
     const paletteGrid = document.getElementById('color-palette-grid');
-    paletteGrid.innerHTML = ''; 
+    paletteGrid.innerHTML = ''; // 초기화
     
+    // Primary, Secondary, Grayscale 등을 순회하며 렌더링
     const renderColorGroup = (group, name) => {
-        if (!group) return; // [수정] group이 없는 경우 방어
         Object.entries(group).forEach(([key, value]) => {
             const card = document.createElement('div');
             card.className = 'color-card';
@@ -502,12 +464,13 @@ function renderReport(data) {
     if (data.colorSystem) {
         renderColorGroup(data.colorSystem.primary, 'Primary');
         renderColorGroup(data.colorSystem.secondary, 'Secondary');
+        // 'grayscale' 등 다른 속성이 있다면 추가
     }
     document.getElementById('color-reasoning').textContent = data.reasoning?.color || '-';
 
     // 2. 타이포그래피 렌더링
     const typographySpecs = document.getElementById('typography-specs');
-    typographySpecs.innerHTML = ''; 
+    typographySpecs.innerHTML = ''; // 초기화
     
     if (data.typography) {
         Object.entries(data.typography).forEach(([key, value]) => {
@@ -521,7 +484,7 @@ function renderReport(data) {
     
     // 3. 유니버설 디자인 가이드 렌더링
     const universalGuide = document.getElementById('universal-guide');
-    universalGuide.innerHTML = ''; 
+    universalGuide.innerHTML = ''; // 초기화
     
     if (data.accessibility) {
         Object.entries(data.accessibility).forEach(([key, value]) => {
@@ -540,7 +503,7 @@ function renderReport(data) {
     updateCodeOutput();
 }
 
-// (이전과 동일)
+// 컴포넌트 미리보기 UI 렌더링
 function renderComponentShowcase(colorSystem) {
     if (!colorSystem) return;
 
@@ -571,7 +534,7 @@ function renderComponentShowcase(colorSystem) {
     `;
 }
 
-// (이전과 동일)
+// 코드 내보내기 탭 콘텐츠 업데이트
 function updateCodeOutput() {
     const outputEl = document.getElementById('code-output');
     if (!reportData || !reportData.colorSystem) {
@@ -643,9 +606,8 @@ module.exports = {
 // 유틸리티 함수
 // ============================================
 
-// (이전과 동일)
+// 16진수 색상을 RGB 객체로 변환
 function hexToRgb(hex) {
-    if (!hex) return null; // [수정] 방어 코드
     let c = hex.substring(1).split('');
     if (c.length === 3) {
         c = [c[0], c[0], c[1], c[1], c[2], c[2]];
@@ -658,7 +620,7 @@ function hexToRgb(hex) {
     };
 }
 
-// (이전과 동일)
+// RGB 값을 이용해 명도(Luminance) 계산
 function getLuminance(r, g, b) {
     const a = [r, g, b].map(v => {
         v /= 255;
@@ -667,7 +629,7 @@ function getLuminance(r, g, b) {
     return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
 }
 
-// (이전과 동일)
+// 두 16진수 색상 간의 명도 대비 계산
 function calculateContrast(hex1, hex2) {
     const rgb1 = hexToRgb(hex1);
     const rgb2 = hexToRgb(hex2);
@@ -683,15 +645,15 @@ function calculateContrast(hex1, hex2) {
     return (brightest + 0.05) / (darkest + 0.05);
 }
 
-// (이전과 동일)
+// 배경색에 따라 적절한 텍스트 색상(검정/흰색) 반환
 function getContrastYIQ(hex){
     const rgb = hexToRgb(hex);
     if (!rgb) return false;
     const yiq = ((rgb.r * 299) + (rgb.g * 587) + (rgb.b * 114)) / 1000;
-    return (yiq >= 128); 
+    return (yiq >= 128); // 128 이상이면 밝은색 (검정 텍스트)
 }
 
-// (이전과 동일) - (참고: 이 함수는 원본에 버그가 있을 수 있으나 수정하지 않음)
+// 색상 밝게/어둡게 (Shade/Tint)
 function lightenDarkenColor(hex, amt) {
     let usePound = false;
     if (hex[0] == "#") {
@@ -711,7 +673,8 @@ function lightenDarkenColor(hex, amt) {
     return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
 }
 
-// (이전과 동일)
+// (참고: 다른 유틸리티 함수들...)
+// 보색 계산
 function getComplementaryColor(hex){
     const rgb = hexToRgb(hex);
     if (!rgb) return '#000000';
@@ -732,11 +695,11 @@ function getComplementaryColor(hex){
         h /= 6;
     }
     
-    h = (h + 0.5) % 1.0; 
+    h = (h + 0.5) % 1.0; // 색상(hue) 180도 회전
     
     let r_comp, g_comp, b_comp;
     if(s == 0){
-        r_comp = g_comp = b_comp = l; 
+        r_comp = g_comp = b_comp = l; // 무채색
     }else{
         const hue2rgb = (p, q, t) => {
             if(t < 0) t += 1;
