@@ -298,10 +298,10 @@ body {
 .generate-btn:hover { 
     background: #5555ee; 
     transform: translateY(-2px); 
-    box-shadow: 0 6px 20px rgba(102, 102, 255, 0.3); 
+    box-shadow: 0 5px 15px rgba(102,102,255,0.3); 
 }
 
-/* PDF 다운로드 버튼 */
+/* PNG 다운로드 버튼 스타일 */
 .download-report-btn {
     display: block;
     width: 100%;
@@ -332,9 +332,7 @@ body {
     background: #ccc;
     cursor: not-allowed;
     box-shadow: none;
-}
-
-    box-shadow: 0 5px 15px rgba(102,102,255,0.3); 
+    transform: none;
 }
 
 .loading { 

@@ -469,10 +469,10 @@ function initializeReportPage() {
         });
     });
 
-    // PDF 다운로드 버튼 (버튼이 존재할 때만 이벤트 추가)
+    // PNG 다운로드 버튼
     const downloadBtn = document.getElementById('download-report-btn');
     if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadReportAsPDF);
+        downloadBtn.addEventListener('click', downloadReportAsPNG);
     }
 }
 
@@ -1083,99 +1083,111 @@ function getComplementaryColor(hex){
 }
 
 // ============================================
-// 이미지 다운로드 기능 (html2canvas 사용)
+// PNG 이미지 다운로드 기능
 // ============================================
 
-async function downloadReportAsPDF() {
+async function downloadReportAsPNG() {
     const btn = document.getElementById('download-report-btn');
     if (!btn) {
-        console.error('다운로드 버튼을 찾을 수 없습니다.');
+        alert('다운로드 버튼을 찾을 수 없습니다.');
         return;
     }
     
     const originalText = btn.textContent;
     
     try {
-        btn.textContent = '📸 캡처 준비 중...';
+        // 버튼 상태 변경
+        btn.textContent = '⏳ 준비 중...';
         btn.disabled = true;
 
+        // 리포트 데이터 확인
         if (!reportData) {
-            throw new Error('리포트 데이터가 없습니다. 먼저 AI 리포트를 생성해주세요.');
+            alert('리포트 데이터가 없습니다.\n먼저 1번 탭에서 "AI 가이드 생성하기"를 실행하고,\n3번 탭 "AI 디자인 리포트"로 이동해주세요.');
+            btn.textContent = originalText;
+            btn.disabled = false;
+            return;
         }
 
-        // 리포트 컨텐츠 가져오기 (3번째 탭의 실제 내용)
+        // 리포트 컨텐츠 찾기
         const reportContent = document.getElementById('report-content');
         
         if (!reportContent) {
-            throw new Error('리포트를 찾을 수 없습니다.');
+            alert('리포트 영역을 찾을 수 없습니다.');
+            btn.textContent = originalText;
+            btn.disabled = false;
+            return;
         }
 
-        // 리포트가 화면에 보이는지 확인
-        if (reportContent.style.display === 'none') {
-            throw new Error('리포트가 생성되지 않았습니다. AI 디자인 리포트 탭에서 리포트를 먼저 생성해주세요.');
+        // 리포트가 표시되어 있는지 확인
+        const computedStyle = window.getComputedStyle(reportContent);
+        if (computedStyle.display === 'none') {
+            alert('리포트가 아직 생성되지 않았습니다.\n"AI 디자인 리포트" 탭으로 이동하면 자동으로 생성됩니다.');
+            btn.textContent = originalText;
+            btn.disabled = false;
+            return;
         }
 
         btn.textContent = '📸 캡처 중...';
-        
-        // 스크롤을 리포트 시작 위치로
-        reportContent.scrollIntoView({ behavior: 'instant', block: 'start' });
-        
-        // 렌더링 완료 대기
-        await new Promise(resolve => setTimeout(resolve, 800));
 
-        console.log('캡처 시작:', reportContent);
+        // 약간의 대기 (렌더링 완료 대기)
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // html2canvas로 캡처
         const canvas = await html2canvas(reportContent, {
-            scale: 2,                    // 고해상도
-            useCORS: true,               // 외부 이미지 허용
-            allowTaint: true,            // 외부 리소스 허용
-            logging: true,               // 디버깅용 로그
-            backgroundColor: '#ffffff',   // 흰색 배경
-            width: reportContent.scrollWidth,
-            height: reportContent.scrollHeight,
-            x: 0,
-            y: 0
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false,
+            imageTimeout: 0,
+            removeContainer: true
         });
-
-        console.log('캡처 완료, 다운로드 중...');
 
         btn.textContent = '💾 저장 중...';
 
-        // Canvas를 이미지로 변환하여 다운로드
-        canvas.toBlob(function(blob) {
+        // Canvas를 Blob으로 변환하고 다운로드
+        canvas.toBlob(async (blob) => {
             if (!blob) {
-                throw new Error('이미지 생성에 실패했습니다.');
+                throw new Error('이미지 생성 실패');
             }
 
-            // 다운로드 링크 생성
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const date = new Date().toISOString().split('T')[0];
-            link.download = `UNIVASSIST_Design_Report_${date}.png`;
-            link.href = url;
+            // 현재 날짜
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
             
-            // 다운로드 실행
+            // 파일명
+            const filename = `UNIVASSIST_Design_Report_${dateStr}_${timeStr}.png`;
+
+            // Blob URL 생성
+            const url = URL.createObjectURL(blob);
+            
+            // 다운로드 링크 생성 및 클릭
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
             
-            // 메모리 정리
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            
+            // 정리
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 100);
+
             // 성공 메시지
-            btn.textContent = '✓ 다운로드 완료!';
-            console.log('다운로드 완료!');
-            
+            btn.textContent = '✅ 다운로드 완료!';
             setTimeout(() => {
                 btn.textContent = originalText;
                 btn.disabled = false;
             }, 2000);
+
         }, 'image/png', 1.0);
 
     } catch (error) {
-        console.error('이미지 생성 오류:', error);
-        alert(error.message || '이미지 다운로드 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+        console.error('PNG 다운로드 오류:', error);
+        alert('이미지 다운로드 중 오류가 발생했습니다.\n' + error.message);
         btn.textContent = originalText;
         btn.disabled = false;
     }
