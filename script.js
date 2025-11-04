@@ -468,6 +468,11 @@ function initializeReportPage() {
             }, 2000);
         });
     });
+
+    // PDF 다운로드 버튼
+    document.getElementById('download-report-btn').addEventListener('click', () => {
+        downloadReportAsPDF();
+    });
 }
 
 // AI 리포트 생성
@@ -1074,4 +1079,68 @@ function getComplementaryColor(hex){
     
     const toHex = x => ('0' + Math.round(x * 255).toString(16)).slice(-2);
     return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
+}
+
+// ============================================
+// PDF 다운로드 기능
+// ============================================
+
+async function downloadReportAsPDF() {
+    const btn = document.getElementById('download-report-btn');
+    const originalText = btn.textContent;
+    
+    try {
+        // 버튼 상태 변경
+        btn.textContent = '📥 PDF 생성 중...';
+        btn.disabled = true;
+
+        // 리포트 컨텐츠 가져오기
+        const reportContent = document.getElementById('report-content');
+        
+        if (!reportContent) {
+            throw new Error('리포트 컨텐츠를 찾을 수 없습니다.');
+        }
+
+        // PDF 옵션 설정
+        const opt = {
+            margin: [10, 10, 10, 10],
+            filename: `TYPOUNIVERSE_Design_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                letterRendering: true
+            },
+            jsPDF: { 
+                unit: 'mm', 
+                format: 'a4', 
+                orientation: 'portrait' 
+            },
+            pagebreak: { 
+                mode: ['avoid-all', 'css', 'legacy'],
+                before: '.report-section'
+            }
+        };
+
+        // HTML을 PDF로 변환
+        await html2pdf().set(opt).from(reportContent).save();
+
+        // 성공 메시지
+        btn.textContent = '✓ 다운로드 완료!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }, 2000);
+
+    } catch (error) {
+        console.error('PDF 생성 중 오류:', error);
+        btn.textContent = '❌ 다운로드 실패';
+        alert('PDF 다운로드 중 오류가 발생했습니다. 다시 시도해주세요.');
+        
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }, 2000);
+    }
 }

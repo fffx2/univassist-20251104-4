@@ -298,6 +298,42 @@ body {
 .generate-btn:hover { 
     background: #5555ee; 
     transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(102, 102, 255, 0.3); 
+}
+
+/* PDF 다운로드 버튼 */
+.download-report-btn {
+    display: block;
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    margin-top: 20px;
+}
+
+.download-report-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.download-report-btn:active {
+    transform: translateY(-1px);
+}
+
+.download-report-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
     box-shadow: 0 5px 15px rgba(102,102,255,0.3); 
 }
 
