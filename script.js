@@ -469,10 +469,11 @@ function initializeReportPage() {
         });
     });
 
-    // PDF 다운로드 버튼
-    document.getElementById('download-report-btn').addEventListener('click', () => {
-        downloadReportAsPDF();
-    });
+    // PDF 다운로드 버튼 (버튼이 존재할 때만 이벤트 추가)
+    const downloadBtn = document.getElementById('download-report-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadReportAsPDF);
+    }
 }
 
 // AI 리포트 생성
@@ -1087,46 +1088,52 @@ function getComplementaryColor(hex){
 
 async function downloadReportAsPDF() {
     const btn = document.getElementById('download-report-btn');
+    if (!btn) return;
+    
     const originalText = btn.textContent;
     
     try {
-        // 버튼 상태 변경
         btn.textContent = '📥 PDF 생성 중...';
         btn.disabled = true;
 
-        // 리포트 컨텐츠 가져오기
-        const reportContent = document.getElementById('report-content');
-        
-        if (!reportContent) {
-            throw new Error('리포트 컨텐츠를 찾을 수 없습니다.');
+        if (!reportData) {
+            throw new Error('리포트 데이터가 없습니다. 먼저 AI 리포트를 생성해주세요.');
         }
 
-        // PDF 옵션 설정
+        // 1페이지 요약 HTML 생성
+        const summaryHTML = generateSummaryReport();
+        
+        // 임시 컨테이너 생성
+        const tempContainer = document.createElement('div');
+        tempContainer.style.cssText = 'position: absolute; left: -9999px; width: 210mm;';
+        tempContainer.innerHTML = summaryHTML;
+        document.body.appendChild(tempContainer);
+
+        // PDF 옵션
         const opt = {
-            margin: [10, 10, 10, 10],
-            filename: `TYPOUNIVERSE_Design_Report_${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
+            margin: 8,
+            filename: `TYPOUNIVERSE_Design_Summary_${new Date().toISOString().split('T')[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.95 },
             html2canvas: { 
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                letterRendering: true
+                backgroundColor: '#ffffff'
             },
             jsPDF: { 
                 unit: 'mm', 
                 format: 'a4', 
                 orientation: 'portrait' 
-            },
-            pagebreak: { 
-                mode: ['avoid-all', 'css', 'legacy'],
-                before: '.report-section'
             }
         };
 
-        // HTML을 PDF로 변환
-        await html2pdf().set(opt).from(reportContent).save();
+        // PDF 변환 및 저장
+        await html2pdf().set(opt).from(tempContainer).save();
 
-        // 성공 메시지
+        // 임시 컨테이너 제거
+        document.body.removeChild(tempContainer);
+
+        // 성공
         btn.textContent = '✓ 다운로드 완료!';
         setTimeout(() => {
             btn.textContent = originalText;
@@ -1134,13 +1141,187 @@ async function downloadReportAsPDF() {
         }, 2000);
 
     } catch (error) {
-        console.error('PDF 생성 중 오류:', error);
-        btn.textContent = '❌ 다운로드 실패';
-        alert('PDF 다운로드 중 오류가 발생했습니다. 다시 시도해주세요.');
-        
-        setTimeout(() => {
-            btn.textContent = originalText;
-            btn.disabled = false;
-        }, 2000);
+        console.error('PDF 생성 오류:', error);
+        alert(error.message || 'PDF 다운로드 중 오류가 발생했습니다.');
+        btn.textContent = originalText;
+        btn.disabled = false;
     }
+}
+
+// 1페이지 요약 리포트 HTML 생성
+function generateSummaryReport() {
+    if (!reportData) {
+        return '<div style="padding: 20px;">리포트 데이터가 없습니다.</div>';
+    }
+
+    const primary = reportData.colors.primary['500'];
+    const secondary = reportData.colors.secondary['500'];
+    const primaryLight = reportData.colors.primary['300'];
+    const primaryDark = reportData.colors.primary['700'];
+    const secondaryLight = reportData.colors.secondary['300'];
+    const secondaryDark = reportData.colors.secondary['700'];
+
+    const normalBg = appState.labColors.bgColor;
+    const normalText = appState.labColors.textColor;
+    const normalRatio = calculateContrast(normalBg, normalText);
+    
+    const colorblindBg = optimizeForColorblind(normalBg);
+    const colorblindText = optimizeForColorblind(normalText);
+    const colorblindRatio = calculateContrast(colorblindBg, colorblindText);
+
+    return `
+        <div style="font-family: 'Pretendard', sans-serif; padding: 20px; background: white; color: #333;">
+            <!-- 헤더 -->
+            <div style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid ${primary};">
+                <h1 style="font-size: 28px; font-weight: 700; color: ${primary}; margin: 0 0 8px 0;">TYPOUNIVERSE</h1>
+                <p style="font-size: 13px; color: #666; margin: 0;">AI Design System Report - ${new Date().toLocaleDateString('ko-KR')}</p>
+                <p style="font-size: 12px; color: #999; margin: 5px 0 0 0;">${appState.service || ''} · ${appState.platform || ''} · ${appState.keyword || ''}</p>
+            </div>
+
+            <!-- 컬러 + 타이포 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 12px 0;">주조/보조 컬러시스템</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div style="text-align: center;">
+                            <div style="width: 100%; height: 50px; background: ${primary}; border-radius: 6px; margin-bottom: 5px;"></div>
+                            <p style="font-size: 10px; margin: 0;">Primary</p>
+                            <p style="font-size: 9px; margin: 0; color: #999;">${primary}</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="width: 100%; height: 50px; background: ${secondary}; border-radius: 6px; margin-bottom: 5px;"></div>
+                            <p style="font-size: 10px; margin: 0;">Secondary</p>
+                            <p style="font-size: 9px; margin: 0; color: #999;">${secondary}</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="width: 100%; height: 35px; background: ${primaryLight}; border-radius: 6px; margin-bottom: 5px;"></div>
+                            <p style="font-size: 9px; margin: 0; color: #999;">Light</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="width: 100%; height: 35px; background: ${secondaryLight}; border-radius: 6px; margin-bottom: 5px;"></div>
+                            <p style="font-size: 9px; margin: 0; color: #999;">Light</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="width: 100%; height: 35px; background: ${primaryDark}; border-radius: 6px; margin-bottom: 5px;"></div>
+                            <p style="font-size: 9px; margin: 0; color: #999;">Dark</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="width: 100%; height: 35px; background: ${secondaryDark}; border-radius: 6px; margin-bottom: 5px;"></div>
+                            <p style="font-size: 9px; margin: 0; color: #999;">Dark</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 12px 0;">웹폰트 페어링</h3>
+                    <div style="margin-bottom: 10px;">
+                        <p style="font-size: 11px; color: #666; margin: 0 0 3px 0; font-weight: 600;">Heading</p>
+                        <p style="font-size: 16px; font-weight: 700; margin: 0;">${reportData.fonts.heading}</p>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <p style="font-size: 11px; color: #666; margin: 0 0 3px 0; font-weight: 600;">Body</p>
+                        <p style="font-size: 13px; margin: 0;">${reportData.fonts.body}</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 11px; color: #666; margin: 0 0 3px 0; font-weight: 600;">한글</p>
+                        <p style="font-size: 13px; margin: 0;">${reportData.fonts.korean}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 타이포 가이드 -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 10px 0;">플랫폼별 타이포그래피 가이드 (${appState.platform || 'Web'})</h3>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
+                    <div>
+                        <p style="font-size: 10px; font-weight: 600; margin: 0 0 5px 0;">명도대비</p>
+                        <p style="font-size: 9px; line-height: 1.5; margin: 0;">WCAG 2.1 AA 기준 (4.5:1) 준수</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 10px; font-weight: 600; margin: 0 0 5px 0;">권장 사이즈</p>
+                        <p style="font-size: 9px; line-height: 1.5; margin: 0;">Body: 16px / Heading: 24-34px / 최소: 14px</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 유니버설 컬러 -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 10px 0;">유니버설 컬러시스템</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="background: white; padding: 10px; border-radius: 6px;">
+                        <p style="font-size: 10px; font-weight: 600; margin: 0 0 8px 0;">일반 시각</p>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="width: 100%; height: 35px; background: ${normalBg}; border-radius: 4px; margin-bottom: 3px; border: 1px solid #ddd;"></div>
+                                <p style="font-size: 8px; margin: 0; color: #999;">BG</p>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="width: 100%; height: 35px; background: ${normalText}; border-radius: 4px; margin-bottom: 3px; border: 1px solid #ddd;"></div>
+                                <p style="font-size: 8px; margin: 0; color: #999;">TEXT</p>
+                            </div>
+                        </div>
+                        <div style="background: ${normalBg}; color: ${normalText}; padding: 8px; border-radius: 4px; text-align: center;">
+                            <p style="font-size: 9px; margin: 0;">대비: ${normalRatio.toFixed(2)}:1</p>
+                        </div>
+                    </div>
+                    <div style="background: white; padding: 10px; border-radius: 6px;">
+                        <p style="font-size: 10px; font-weight: 600; margin: 0 0 8px 0;">색각 이상자 시각</p>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="width: 100%; height: 35px; background: ${colorblindBg}; border-radius: 4px; margin-bottom: 3px; border: 1px solid #ddd;"></div>
+                                <p style="font-size: 8px; margin: 0; color: #999;">BG</p>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="width: 100%; height: 35px; background: ${colorblindText}; border-radius: 4px; margin-bottom: 3px; border: 1px solid #ddd;"></div>
+                                <p style="font-size: 8px; margin: 0; color: #999;">TEXT</p>
+                            </div>
+                        </div>
+                        <div style="background: ${colorblindBg}; color: ${colorblindText}; padding: 8px; border-radius: 4px; text-align: center;">
+                            <p style="font-size: 9px; margin: 0;">대비: ${colorblindRatio.toFixed(2)}:1</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 컴포넌트 -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 10px 0;">컴포넌트 미리보기</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
+                    <div style="background: ${primary}; color: ${getContrastingTextColor(primary)}; padding: 10px; border-radius: 6px; text-align: center; font-size: 11px; font-weight: 600;">Primary</div>
+                    <div style="background: ${secondary}; color: ${getContrastingTextColor(secondary)}; padding: 10px; border-radius: 6px; text-align: center; font-size: 11px; font-weight: 600;">Secondary</div>
+                    <div style="background: transparent; color: ${primary}; padding: 9px; border-radius: 6px; text-align: center; font-size: 11px; font-weight: 600; border: 2px solid ${primary};">Outline</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="background: white; padding: 12px; border-radius: 6px; border-left: 3px solid ${primary};">
+                        <h4 style="font-size: 12px; font-weight: 700; color: ${primary}; margin: 0 0 5px 0;">Premium Card</h4>
+                        <p style="font-size: 9px; line-height: 1.5; margin: 0;">주요 컨텐츠 강조</p>
+                    </div>
+                    <div style="background: white; padding: 12px; border-radius: 6px; border-left: 3px solid ${secondary};">
+                        <h4 style="font-size: 12px; font-weight: 700; color: ${secondary}; margin: 0 0 5px 0;">Secondary Card</h4>
+                        <p style="font-size: 9px; line-height: 1.5; margin: 0;">보조 컨텐츠 표현</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 색상 가이드 -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="font-size: 14px; font-weight: 700; margin: 0 0 10px 0;">색상 사용 가이드</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 9px; line-height: 1.6;">
+                    <div>
+                        <p style="margin: 0 0 5px 0;"><strong style="color: ${primary};">• Primary:</strong> 주요 액션, 링크, 브랜드 강조</p>
+                        <p style="margin: 0;"><strong style="color: ${primaryLight};">• Primary Light:</strong> 배경, 호버, 부드러운 강조</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0 0 5px 0;"><strong style="color: ${secondary};">• Secondary:</strong> 보조 액션, 구분 요소</p>
+                        <p style="margin: 0;"><strong style="color: ${primaryDark};">• Primary Dark:</strong> 텍스트, 아이콘, 강한 대비</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 푸터 -->
+            <div style="text-align: center; padding-top: 15px; border-top: 2px solid #e0e0e0;">
+                <p style="font-size: 10px; color: #999; margin: 0;">Generated by TYPOUNIVERSE AI Design Assistant</p>
+            </div>
+        </div>
+    `;
 }
