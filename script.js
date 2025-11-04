@@ -164,6 +164,9 @@ function updateKeywordChips() {
 // 무드 값에 따라 키워드 그룹 반환 (임시 로직)
 function getKeywordsFromMood(soft, staticMood) {
     // knowledgeBase의 iri_colors를 기반으로 동적 매칭
+    // 예시: Soft (soft > 50), Hard (soft <= 50)
+    // 예시: Static (staticMood > 50), Dynamic (staticMood <= 50)
+    
     const isSoft = soft > 50;
     const isStatic = staticMood > 50;
     
@@ -304,12 +307,12 @@ function initializeLabPage() {
             bg = bgColorPicker.value;
             bgColorText.value = bg;
         } else { // 'swap' or 'reset'
-            // swap/reset의 경우, 이미 input 값이 변경된 상태이므로 값만 읽어옴
+            bg = bgColorText.value;
+            text = textColorText.value;
         }
-        
-        // appState 업데이트
-        appState.labColors.bgColor = bgColorText.value;
-        appState.labColors.textColor = textColorText.value;
+
+        appState.labColors.bgColor = bg;
+        appState.labColors.textColor = text;
 
         // 미리보기 업데이트
         updateLabPreview();
@@ -365,6 +368,7 @@ function updateLabPreview() {
     // 버튼 스타일 (임시: 주조색 또는 반전)
     // AI 생성 결과가 있으면 주조색 사용, 없으면 텍스트색 사용
     const primaryMain = appState.generatedResult?.primary.main || textColor;
+    const primaryLight = appState.generatedResult?.primary.light || bgColor;
     
     button.style.backgroundColor = primaryMain;
     button.style.color = getContrastYIQ(primaryMain) ? '#000000' : '#FFFFFF'; // 버튼 텍스트 자동 대비
@@ -399,14 +403,7 @@ function updateWCAGStatus(elementId, passed) {
 // ============================================
 
 function initializeReportPage() {
-    // [수정] 다운로드 버튼 이벤트 리스너 추가
-    const downloadBtn = document.getElementById('download-report-btn');
-    
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadReportAsImage);
-    } else {
-        console.warn('Download button (id="download-report-btn") not found during init.');
-    }
+    // (참고: 이 원본 버전에는 다운로드 버튼 로직이 없습니다)
 
     // 코드 내보내기 탭 로직
     const exportTabs = document.querySelectorAll('.export-tab');
@@ -436,58 +433,6 @@ function initializeReportPage() {
     });
 }
 
-
-/**
- * [신규] AI 리포트 영역을 이미지로 캡처하여 다운로드하는 함수
- */
-async function downloadReportAsImage() {
-    // 캡처할 대상 요소를 찾습니다. (index.html에서 설정한 ID)
-    const reportContentElement = document.getElementById('report-content');
-    const downloadBtn = document.getElementById('download-report-btn');
-
-    if (!reportContentElement) {
-        console.error('Report content element (id="report-content") not found!');
-        alert('리포트 콘텐츠 영역을 찾을 수 없습니다.');
-        return;
-    }
-
-    // 캡처 중임을 알리기 위해 버튼 상태 변경
-    const originalBtnText = downloadBtn.textContent;
-    downloadBtn.textContent = '이미지 생성 중...';
-    downloadBtn.disabled = true;
-
-    try {
-        // html2canvas를 사용하여 #report-content 요소를 캡처
-        const canvas = await html2canvas(reportContentElement, {
-            scale: 2, // 2배 해상도로 캡처하여 선명도 향상
-            useCORS: true, // 외부 이미지가 있다면 필요할 수 있음
-            backgroundColor: '#f8f9fa' // body의 배경색과 동일하게 지정 (흰색 방지)
-        });
-
-        // 캡처된 캔버스를 PNG 이미지 데이터 URL로 변환
-        const dataUrl = canvas.toDataURL('image/png');
-
-        // 임시 링크 요소를 생성하여 다운로드 트리거
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = 'ai-design-report.png'; // 저장될 파일 이름
-        
-        // DOM에 추가했다가 제거 (클릭을 위해)
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-    } catch (error) {
-        console.error('리포트 이미지 생성 중 오류 발생:', error);
-        alert('리포트 이미지 생성 중 오류가 발생했습니다.');
-    } finally {
-        // 버튼 텍스트와 상태를 원래대로 복원
-        downloadBtn.textContent = originalBtnText;
-        downloadBtn.disabled = false;
-    }
-}
-
-
 // AI 리포트 페이지 렌더링
 function renderReport(data) {
     if (!data) return;
@@ -498,7 +443,6 @@ function renderReport(data) {
     
     // Primary, Secondary, Grayscale 등을 순회하며 렌더링
     const renderColorGroup = (group, name) => {
-        if (!group) return;
         Object.entries(group).forEach(([key, value]) => {
             const card = document.createElement('div');
             card.className = 'color-card';
@@ -520,6 +464,7 @@ function renderReport(data) {
     if (data.colorSystem) {
         renderColorGroup(data.colorSystem.primary, 'Primary');
         renderColorGroup(data.colorSystem.secondary, 'Secondary');
+        // 'grayscale' 등 다른 속성이 있다면 추가
     }
     document.getElementById('color-reasoning').textContent = data.reasoning?.color || '-';
 
@@ -613,7 +558,7 @@ function updateCodeOutput() {
   
   /* (Grayscale 등 추가) */
 }
-            `.trim();
+            `;
             break;
         case 'scss':
             outputEl.textContent = `
@@ -626,7 +571,7 @@ $color-secondary-light: ${secondary.light};
 $color-secondary-dark: ${secondary.dark};
 
 /* (Grayscale 등 추가) */
-            `.trim();
+            `;
             break;
         case 'tailwind':
             outputEl.textContent = `
@@ -651,7 +596,7 @@ module.exports = {
   },
   plugins: [],
 }
-            `.trim();
+            `;
             break;
     }
 }
@@ -663,7 +608,6 @@ module.exports = {
 
 // 16진수 색상을 RGB 객체로 변환
 function hexToRgb(hex) {
-    if (!hex) return null;
     let c = hex.substring(1).split('');
     if (c.length === 3) {
         c = [c[0], c[0], c[1], c[1], c[2], c[2]];
@@ -709,7 +653,6 @@ function getContrastYIQ(hex){
     return (yiq >= 128); // 128 이상이면 밝은색 (검정 텍스트)
 }
 
-// (참고: 다른 유틸리티 함수들...)
 // 색상 밝게/어둡게 (Shade/Tint)
 function lightenDarkenColor(hex, amt) {
     let usePound = false;
@@ -727,10 +670,10 @@ function lightenDarkenColor(hex, amt) {
     let g = (num & 0x0000FF) + amt;
     if (g > 255) g = 255;
     else if (g < 0) g = 0;
-    // padStart로 6자리 보장
     return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
 }
 
+// (참고: 다른 유틸리티 함수들...)
 // 보색 계산
 function getComplementaryColor(hex){
     const rgb = hexToRgb(hex);
